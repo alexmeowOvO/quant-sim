@@ -10,8 +10,8 @@ build/
 .venv/
 venv/
 
-# Results (generated)
-results/*.png
+# Results (generated — never commit)
+results/
 
 # IDE
 .vscode/
