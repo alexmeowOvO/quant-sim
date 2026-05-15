@@ -1,0 +1,115 @@
+universe:
+  tiers:
+    stable:
+      tickers:
+        - CBA    # Commonwealth Bank
+        - NAB    # National Australia Bank
+        - WBC    # Westpac
+        - ANZ    # ANZ Banking Group
+        - WES    # Wesfarmers
+        - WOW    # Woolworths
+        - COL    # Coles
+      # Signal params (per-tier, optimised by sweep_tier.py)
+      bb_window: 10
+      bb_std: 1.2
+      vwap_threshold: 0.003
+      adx_window: 14
+      adx_threshold: 20
+      min_trending_adx: 40
+      trend_filter_window: 50
+      # Execution params
+      atr_multiplier: 2.0
+      max_hold_bars: 12
+
+    medium:
+      tickers:
+        - MQG    # Macquarie Group
+        - BHP    # BHP Group
+        - RIO    # Rio Tinto
+        - WDS    # Woodside
+        - STO    # Santos
+        - CSL    # CSL Limited
+        - SHL    # Sonic Healthcare
+        - GMG    # Goodman Group
+        - EVN    # Evolution Mining (gold)
+      # Signal params (per-tier, optimised by sweep_tier.py)
+      bb_window: 10
+      bb_std: 1.2
+      vwap_threshold: 0.005
+      adx_window: 14
+      adx_threshold: 20
+      min_trending_adx: 40
+      trend_filter_window: 50
+      # Execution params
+      atr_multiplier: 5.0
+      max_hold_bars: 18
+
+data:
+  days: 730         # ~2 years; yfinance supports 1h bars up to ~730 days
+  interval: "1h"
+
+strategy:
+  trending_enabled: false   # EMA crossover branch — disabled; no edge at 1h on ASX
+  # EMA / RSI params (used only when trending_enabled: true)
+  ema:
+    fast: 9
+    slow: 20
+  rsi:
+    window: 14
+    overbought: 70
+    oversold: 30
+  max_concurrent_positions: 5
+
+execution:
+  slippage_pct: 0.0005           # 0.05% per side
+  commission_per_trade: 10.0     # AUD, flat CommSec-style
+
+portfolio:
+  initial_capital: 100000.0      # AUD
+  position_size_pct: 0.10        # 10% of capital per position (fixed dollar)
+
+risk:
+  stop_loss_pct: 0.010           # fallback: 1% fixed stop (used when ATR is unavailable)
+
+# Market regime filter — blocks ALL new entries when the ASX 200 is in a downtrend.
+# sma_window = 0 disables the filter entirely.
+# At 1h resolution: 200 bars ≈ 33 trading days, 100 bars ≈ 17 trading days.
+market_filter:
+  ticker: "^AXJO"
+  sma_window: 50
+
+# Global parameter sweep ranges (used by sweep.py — uniform scaling across tiers).
+sweep:
+  bollinger_window: [10, 20, 50]
+  atr_multiplier_scale: [0.75, 1.0, 1.25, 1.5]
+  max_hold_bars_scale: [0.5, 1.0, 1.5]
+  adx_window: [14]
+  adx_threshold: [25]
+  min_trending_adx: [40]
+  fast_ema: [9]
+  slow_ema: [20]
+  rsi_window: [14]
+  rsi_ob_os: [[70, 30]]
+  trend_filter_window: [0, 100]
+  market_sma_window: [0, 100, 200]
+
+# Per-tier sweep ranges (used by sweep_tier.py --tier <name>).
+# Each tier is swept independently using only its own tickers.
+tier_sweep:
+  medium:
+    # Narrowed after partial sweep: adx_t=20, tf=50, hold>=14 clearly dominate
+    bb_window: [10, 20]
+    bb_std: [1.2, 1.5, 2.0, 2.5]
+    vwap_threshold: [0.003, 0.005, 0.010]
+    adx_threshold: [20, 25]
+    trend_filter_window: [50, 100]     # tf=0 is clearly negative; 50 beats 100 early on
+    atr_multiplier: [3.0, 4.0, 5.0]   # wider stops needed for medium volatility
+    max_hold_bars: [14, 18, 24]        # longer holds outperform
+  stable:
+    bb_window: [10, 20]
+    bb_std: [1.2, 1.5, 2.0]
+    vwap_threshold: [0.003, 0.005, 0.010]
+    adx_threshold: [20, 25]
+    trend_filter_window: [50, 100]
+    atr_multiplier: [1.5, 2.0, 2.5, 3.0]
+    max_hold_bars: [6, 8, 12]
