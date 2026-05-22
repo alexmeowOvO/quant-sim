@@ -117,16 +117,48 @@ def main(cfg: dict, charts: bool = True, chart_ticker: Optional[str] = None) -> 
         ticker_tiers=ticker_tier_map,
         tier_params=tier_params_map,
     )
-    trades, equity_curve = run_simulation(signalled_universe, sim_cfg, market_filter=market_ok)
+    trades, equity_curve, missing_bar_log = run_simulation(signalled_universe, sim_cfg, market_filter=market_ok)
     print(f"  {len(trades)} trades completed.")
+    if missing_bar_log:
+        print(f"  ⚠  {len(missing_bar_log)} missing-bar forward-fill event(s) — see results/missing_bar_log.csv")
 
     # 4. Report
     metrics   = compute_metrics(trades, equity_curve, sim_cfg.initial_capital)
     breakdown = per_symbol_breakdown(trades)
     print_report(trades, metrics, breakdown)
 
-    # 5. Tier summary
+    # 4b. Save trades CSV
+    import pandas as pd
+    if trades:
+        ref_idx = next(iter(signalled_universe.values())).index
+        def bar_to_ts(bar):
+            return str(ref_idx[bar]) if bar < len(ref_idx) else str(bar)
+        trades_df = pd.DataFrame([{
+            "ticker":       t.ticker,
+            "tier":         ticker_tier_map.get(t.ticker, ""),
+            "entry_date":   bar_to_ts(t.entry_bar),
+            "exit_date":    bar_to_ts(t.exit_bar),
+            "entry_price":  round(t.entry_price, 4),
+            "exit_price":   round(t.exit_price,  4),
+            "shares":       round(t.shares, 2),
+            "pnl":          round(t.pnl, 2),
+            "exit_reason":  t.exit_reason,
+        } for t in trades])
+        trades_df.to_csv("results/trades.csv", index=False)
+
+        # Stock breakdown CSV (breakdown is already a DataFrame)
+        bd_df = breakdown.copy()
+        bd_df.insert(1, "tier", bd_df["ticker"].map(lambda t: ticker_tier_map.get(t, "")))
+        bd_df.to_csv("results/stock_breakdown.csv", index=False)
+
+    # 4c. Missing-bar forward-fill log
+    if missing_bar_log:
+        mb_df = pd.DataFrame(missing_bar_log)
+        mb_df.to_csv("results/missing_bar_log.csv", index=False)
+
+    # 5. Tier summary + tier_breakdown.csv
     print("\nTIER BREAKDOWN (entry regime × volatility tier)")
+    tier_rows = []
     for tier_name in cfg["universe"]["tiers"]:
         ts = [t for t in trades if ticker_tier_map.get(t.ticker) == tier_name]
         if not ts:
@@ -134,10 +166,32 @@ def main(cfg: dict, charts: bool = True, chart_ticker: Optional[str] = None) -> 
             continue
         wins = [t for t in ts if t.pnl > 0]
         tp   = tier_params_map[tier_name]
+        total_pnl = sum(t.pnl for t in ts)
         print(f"  {tier_name:6s}: {len(ts):3d} trades  "
               f"win={100*len(wins)//len(ts):2d}%  "
               f"atr_mult={tp.atr_multiplier}  hold≤{tp.max_hold_bars}h  "
-              f"total_pnl={sum(t.pnl for t in ts):+.0f}")
+              f"total_pnl={total_pnl:+.0f}")
+        tier_rows.append({
+            "tier":           tier_name,
+            "trades":         len(ts),
+            "win_rate_pct":   round(100 * len(wins) / len(ts), 1),
+            "total_pnl":      round(total_pnl, 2),
+            "atr_multiplier": tp.atr_multiplier,
+            "max_hold_bars":  tp.max_hold_bars,
+        })
+    if tier_rows:
+        pd.DataFrame(tier_rows).to_csv("results/tier_breakdown.csv", index=False)
+
+    # 5b. summary_metrics.json
+    import json, datetime as _dt
+    summary = {**metrics,
+               "date":    str(_dt.date.today()),
+               "universe": f"{len(ticker_list)}_stocks",
+               "tier_a_bb_std": cfg["universe"]["tiers"].get("tier_a", {}).get("bb_std"),
+               "tier_b_bb_std": cfg["universe"]["tiers"].get("tier_b", {}).get("bb_std"),
+    }
+    with open("results/summary_metrics.json", "w") as f:
+        json.dump(summary, f, indent=2)
 
     # 6. Charts
     if charts:
