@@ -59,7 +59,8 @@ def run_simulation(
     universe: Dict[str, pd.DataFrame],
     cfg: SimConfig,
     market_filter: Optional[pd.Series] = None,
-) -> tuple[List[Trade], pd.Series]:
+    return_open: bool = False,
+) -> tuple:
     """
     Event-driven simulation over a pre-signalled universe.
 
@@ -93,6 +94,7 @@ def run_simulation(
     positions: Dict[str, Position] = {}     # ticker → open Position
     trades: List[Trade] = []
     equity_history: List[tuple] = []
+    missing_bar_log: List[dict] = []        # forward-fill events for data-quality audit
 
     for ts in all_timestamps:
         # --- 1. Process exits first (use current bar's open as fill price) ---
@@ -209,15 +211,34 @@ def run_simulation(
                 )
 
         # --- 3. Mark-to-market equity ---
-        open_value = sum(
-            universe[t].loc[ts]["close"] * p.shares
-            for t, p in positions.items()
-            if ts in universe[t].index
-        )
+        # Forward-fill price for open positions whose stock has no bar at this
+        # timestamp (e.g. holiday gaps, cross-listed stocks with different
+        # calendars).  Silently dropping the position's value would produce a
+        # spurious spike down in the equity curve and inflate max_drawdown.
+        open_value = 0.0
+        for t, p in positions.items():
+            df = universe[t]
+            if ts in df.index:
+                price = float(df.loc[ts, "close"])
+            else:
+                earlier = df.index[df.index < ts]
+                price = float(df.loc[earlier[-1], "close"]) if len(earlier) > 0 else p.entry_price
+                # Data-quality warning: log whenever forward-fill fires so we
+                # can distinguish one-off Yahoo glitches from structural
+                # calendar mismatches (e.g. NZ stocks vs ASX holidays).
+                missing_bar_log.append({
+                    "timestamp": str(ts),
+                    "ticker":    t,
+                    "last_known_close": round(price, 4),
+                    "reason": "missing_bar_forward_fill",
+                })
+            open_value += price * p.shares
         equity_history.append((ts, capital + open_value))
 
     equity_curve = pd.Series(
         {ts: val for ts, val in equity_history},
         name="equity",
     )
-    return trades, equity_curve
+    if return_open:
+        return trades, equity_curve, positions, missing_bar_log
+    return trades, equity_curve, missing_bar_log
