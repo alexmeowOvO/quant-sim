@@ -1,0 +1,79 @@
+# lowvwap_defensive_test.yaml
+# Purpose: test whether low-VWAP defensive stocks (vwap_dev 10-15%) contribute to the strategy.
+# These are banks, REITs, infrastructure stocks that range well but rarely deviate from VWAP.
+# All assigned to tier_a (ranging > 22%) — using same params as baseline tier_a.
+# VWAP_DEV_MIN effectively ignored for this test (stocks kept despite low vwap_dev).
+# Compare result against baseline to judge if these stocks earn a permanent slot.
+#
+# Stocks tested (14):
+#   APA  34.2%  atr=0.580  vwap=11.8%
+#   TCL  31.7%  atr=0.529  vwap=10.1%
+#   WBC  29.0%  atr=0.554  vwap=12.3%
+#   GPT  29.6%  atr=0.684  vwap=14.2%
+#   WPR  29.4%  atr=0.708  vwap=12.3%
+#   CLW  28.3%  atr=0.639  vwap=13.6%
+#   BOQ  28.0%  atr=0.557  vwap=11.7%
+#   SCG  26.4%  atr=0.669  vwap=12.6%
+#   CIP  26.3%  atr=0.581  vwap=11.8%
+#   SGP  22.8%  atr=0.678  vwap=14.7%
+#   HVN  22.9%  atr=0.674  vwap=14.1%
+#   SUN  23.0%  atr=0.600  vwap=12.9%
+#   CQR  22.2%  atr=0.653  vwap=12.6%
+#   STO  20.3%  atr=0.657  vwap=13.9%
+
+universe:
+  tiers:
+    tier_a:
+      tickers:
+        - APA   # APA Group                  34.2% ranging  vwap=11.8%
+        - TCL   # Transurban                 31.7% ranging  vwap=10.1%
+        - WBC   # Westpac                    29.0% ranging  vwap=12.3%
+        - GPT   # GPT Group                  29.6% ranging  vwap=14.2%
+        - WPR   # Waypoint REIT              29.4% ranging  vwap=12.3%
+        - CLW   # Charter Hall Long WALE     28.3% ranging  vwap=13.6%
+        - BOQ   # Bank of Queensland         28.0% ranging  vwap=11.7%
+        - SCG   # Scentre Group              26.4% ranging  vwap=12.6%
+        - CIP   # Centuria Industrial REIT   26.3% ranging  vwap=11.8%
+        - SGP   # Stockland                  22.8% ranging  vwap=14.7%
+        - HVN   # Harvey Norman              22.9% ranging  vwap=14.1%
+        - SUN   # Suncorp                    23.0% ranging  vwap=12.9%
+        - CQR   # Charter Hall Retail        22.2% ranging  vwap=12.6%
+        - STO   # Santos                     20.3% ranging  vwap=13.9%
+      bb_window: 20
+      bb_std: 1.0
+      vwap_threshold: 0.005
+      adx_window: 14
+      adx_threshold: 20
+      min_trending_adx: 40
+      trend_filter_window: 50
+      vol_climax_mult: 2.0
+      vol_climax_range: 0.5
+      atr_multiplier: 3.5
+      max_hold_bars: 18
+
+data:
+  days: 730
+  interval: 1h
+paper_trade:
+  days: 60
+strategy:
+  trending_enabled: false
+  ema:
+    fast: 9
+    slow: 20
+  rsi:
+    window: 14
+    overbought: 70
+    oversold: 30
+  max_concurrent_positions: 8
+execution:
+  slippage_pct: 0.0005
+  commission_per_trade: 10.0
+portfolio:
+  initial_capital: 100000.0
+  position_size_pct: 0.1
+risk:
+  stop_loss_pct: 0.01
+market_filter:
+  ticker: ^AXJO
+  sma_window: 50

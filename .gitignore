@@ -12,6 +12,7 @@ venv/
 
 # Results (generated — never commit)
 results/
+launchagent/
 
 # IDE
 .vscode/

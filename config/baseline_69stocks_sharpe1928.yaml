@@ -41,10 +41,6 @@ universe:
         - MTS   # Metcash                    26.0% ⚠
         - AMP   # AMP                        25.6% ⚠
         - RHC   # Ramsay Health              25.5% ⚠
-        - NEC   # Nine Entertainment        30.5% ⚠ [watch]
-        - RWC   # Reliance Worldwide        28.6% ⚠
-        - CNI   # Centuria Industrial       27.0% ⚠ [watch]
-        - INA   # Ingenia Communities       25.3% ⚠
       bb_window: 20
       bb_std: 1.0
       vwap_threshold: 0.005
@@ -89,8 +85,6 @@ universe:
         - HDN   # HomeCo Daily Needs         23.6% ⚠
         - CSL   # CSL Limited                23.3% ⚠
         - RIO   # Rio Tinto                  22.9% ⚠
-        - VEA   # Viva Energy               21.1% [watch]
-        - BSL   # BlueScope Steel           22.8% ⚠
       bb_window: 10
       bb_std: 1.5
       vwap_threshold: 0.005
